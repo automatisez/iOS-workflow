@@ -1,0 +1,12 @@
+{
+  "always_run_in_app" : true,
+  "icon" : {
+    "color" : "light-brown",
+    "glyph" : "user-friends"
+  },
+  "name" : "Créer un groupe",
+  "script" : "function createTextPrompDialog(title, message, fieldLabel, fieldDefault, cancelLabel, actionLabel) {\n  let dialog = new Alert();\n  \n  dialog.title = title;\n  dialog.message = message;\n  \n  dialog.addTextField(fieldLabel, fieldDefault);\n  dialog.addAction(actionLabel);\n  dialog.addCancelAction(cancelLabel);\n  \n  return dialog;\n}\n\nfunction createAlertDialog(title, message, cancelLabel) {\n  let dialog = new Alert();\n  \n  dialog.title = title;\n  dialog.message = message;\n  \n  dialog.addCancelAction(cancelLabel);\n  \n  return dialog;\n}\n\n\/** Prompt user with an alert asking for new group name.\n *\n * If user's select the cancel option, the null value will be returned.\n * \n * If user confirms, the group name will be returned.\n *\/\nasync function askForGroupName() {\n  let dialog = createTextPrompDialog(\n    \"Nouveau groupe\", \n    \"Donnez un nom au groupe que vous voulez créer avec ce contact.\", \n    \"nom de groupe\", \n    \"mongroupe\", \n    \"Annuler\", \n    \"Créer un groupe\"\n    );\n  \n  let groupName = null; \n  let response = await dialog.present();\n  \n  if ( response >= 0 ) {\n    groupName = dialog.textFieldValue(0);\n  }\n  \n  return groupName;\n};\n\n\n\/** Create a group with single member in the specified container.\n *\/\nfunction createGroup(container, groupName) {\n  let group = new ContactsGroup();\n  group.name = groupName;\n  \n  ContactsGroup.add(group, container.identifier);  \n  Contact.persistChanges()\n  .then((data) => {\n    console.log(`Group created successfully: ${ group.name }`);\n  })\n  .catch((error) => {\n    console.log(`Failed to create group ${error}`);\n    let alert = createAlertDialog(\"Erreur\", \"Erreur. Verifiez que votre compte par défault pour les contacts est bien iCloud.\", \"OK\")\n    alert.present();\n  });\n\n  return group;\n}\n\n\nlet groupName = await askForGroupName();\n\nif ( null !== groupName ) {\n  let group = createGroup(ContactsContainer.default(), groupName);\n}\n",
+  "share_sheet_inputs" : [
+
+  ]
+}
