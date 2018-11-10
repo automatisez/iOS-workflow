@@ -50,7 +50,7 @@ for ( contactProps of allContact ) {
     let groupSelectedHandler = (group) => {
       console.log(`Group select: ${group}`);
       if ( null !== group ) {
-        addContactToGroup(contacts[0], group, container);
+        addContactToGroup(contacts[0], group);
       }
     };
     
@@ -278,9 +278,8 @@ async function selectContactGroup(container, selectedFn) {
  *
  * @param contact: Contact
  * @param group: ContactsGroup
- * @param container: ContactsGroup
  */
-function addContactToGroup(contact, group, container) {
+function addContactToGroup(contact, group) {
   group.addMember(contact)
   
   Contact.persistChanges()
