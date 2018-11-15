@@ -1,4 +1,83 @@
+let text = {
+  'group.member.remove': {
+    'fr-FR': "✅ Enlever",
+    '*':     "✅ Remove"
+  },
+  'group.member.restore': {
+    'fr-FR': "🔙 Remettre",
+    '*':     "🔙 Restore"
+  },
+
+  'error': {
+    'fr-FR': "Erreur",
+    '*':     "Error"
+  },
+  'error.msg.remove': {
+    'fr-FR': "Impossible de retirer du groupe. Vérifiez que votre compte par défault pour les contacts est bien iCloud.",
+    '*':     "Failed to remove contact. Please check your default account is iCloud."
+  },
+  'error.msg.restore': {
+    'fr-FR': "Échec de réintégration. Vérifiez que votre compte par défault pour les contacts est bien iCloud.",
+    '*':     "Failed to restore contact in group. Please check your default account is iCloud."
+  },
+  'ok': {
+    'fr-FR': "OK",
+    '*':     "OK"
+  },
+
+
+  // Use this as a template for localization
+  '__': {
+    'fr-FR': "",
+    '*':     ""
+  }
+};
+
+let container = await ContactsContainer.default();
+    
+async function groupSelected(group) {
+  if ( null !== group ) {
+    console.log(`Group: ${group.name}`);
+    let members = await Contact.inGroups([ group ]);
+    let orderedMembers = orderContacts(members);
+    
+    console.log(
+      orderedMembers.map(
+        (c) => { return `${c.familyName} ${c.givenName}`; }
+      )
+    );
+    
+    console.log('manage');
+    manageGroupMembers(container, group, members);
+  }
+};
+    
+await selectContactGroup(container, groupSelected);
+
+
+// ----- 
+
+
+
 // ===== UI UTILITIES
+
+Object.prototype.i18n = function (key) {
+  let langs = Device.preferredLanguages();
+  langs.push('*');
+  
+  if ( 'undefined' === typeof this[key] ) {
+    console.log(`Missing key ${key}`);
+    Script.complete();
+  }
+  
+  let msg;
+  while ( 'undefined' === typeof msg && (langs.length > 0) ) {
+    msg = this[key][langs.shift()];
+  }
+  
+  return msg;
+};
+
 
 /** Create a simple alert dialog.
  */
@@ -128,30 +207,6 @@ async function selectContactGroup(container, selectedFn) {
 // -----
 
 
-let container = await ContactsContainer.default();
-    
-async function groupSelected(group) {
-  if ( null !== group ) {
-    console.log(`Group: ${group.name}`);
-    let members = await Contact.inGroups([ group ]);
-    let orderedMembers = orderContacts(members);
-    
-    console.log(
-      orderedMembers.map(
-        (c) => { return `${c.familyName} ${c.givenName}`; }
-      )
-    );
-    
-    manageGroupMembers(container, group, members);
-  }
-};
-    
-await selectContactGroup(container, groupSelected);
-
-
-// ----- 
-
-
 /** Build and present a list of group members and allow on-the-fly membership management.
  */
 async function manageGroupMembers(container, group, contacts) {
@@ -180,6 +235,7 @@ async function manageGroupMembers(container, group, contacts) {
   };
   
   let table = await createMembersTable(memberList, selectHandler);
+  console.log('present member table')
   table.present();
 }
 
@@ -226,9 +282,12 @@ async function createMemberRow(member, selectFn) {
   let name = `${ member.contact.familyName } ${ member.contact.givenName }`;
   let nameCell = UITableCell.text(name);
   nameCell.leftAligned();
-  
-  let action = ( member.isMember ) ? "✅ Enlever" : "🔙 Remettre";
-  let actionCell = UITableCell.button(action);
+
+  let actionKey = 
+    ( member.isMember ) ? "group.member.remove" 
+                        : "group.member.restore";
+  let action = text.i18n(actionKey);
+  let actionCell = UITableCell.text(action);
   
   row.addCell(nameCell);
   row.addCell(actionCell);
@@ -253,7 +312,11 @@ function removeContactFromGroup(contact, group, complete) {
   })
   .catch((error) => {
     console.log(`Failed to remove contact from group. ${error}`);
-    let alert = createAlertDialog("Erreur", "Impossible de retirer du groupe. Vérifiez que votre compte par défault pour les contacts est bien iCloud.", "OK")
+    let alert = createAlertDialog(
+      text.i18n('error'),
+      text.i18n('error.msg.remove'),
+      text.i18n('ok')
+      );
     alert.present();
   });
 }
@@ -269,7 +332,11 @@ function addContactToGroup(contact, group, complete) {
   })
   .catch((error) => {
     console.log(`Failed to add contact to group. ${error}`);
-    let alert = createAlertDialog("Erreur", "Erreur. Verifiez que votre compte par défault pour les contacts est bien iCloud.", "OK")
+    let alert = createAlertDialog(
+      text.i18n('error'),
+      text.i18n('error.msg.restore'),
+      text.i18n('ok')
+      );
     alert.present();
   });
 }
