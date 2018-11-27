@@ -1,3 +1,63 @@
+let text = {
+
+  'error': {
+    'fr-FR': "Erreur",
+    '*':     "Error"
+  },
+  
+  'error.noContactMatch': {
+    'fr-FR': `Aucun contact correspondant n'a été trouvé dans le compte par défaut. 
+              Avez-vous sélectionné un contact sans nom ou organisation ou votre compte par défault est-il différent de iCloud ?`,
+    '*':     `No matching contact was found in the default contact account.
+              Have you selected an account with at least a first name, last name or organization ou is your default
+              account not the iCloud one?`
+  },
+  'error.multipleContactMatch': {
+    'fr-FR': `Plusieurs contacts portent le même nom et prénom dans le compte par défaut.`,
+    '*':     `Multiple contacts seems to share first name, last name and organization in the default contact account.`
+  },
+  'error.isDefaultICloud': {
+    'fr-FR': `Erreur. Verifiez que votre compte par défault pour les contacts est bien iCloud.`,
+    '*':     `Error. Please check default contact account is iCloud.`
+  },
+  
+  
+  'ok': {
+    'fr-FR': "OK",
+    '*':     "OK"
+  },
+  'cancel': {
+    'fr-FR': "Annuler",
+    '*':     "Cancel"
+  },
+
+
+  // Use this as a template for localization
+  '__': {
+    'fr-FR': "",
+    '*':     ""
+  }
+};
+
+// ===== UI UTILITIES
+
+Object.prototype.i18n = function (key) {
+  let langs = Device.preferredLanguages();
+  langs.push('*');
+  
+  if ( 'undefined' === typeof this[key] ) {
+    console.log(`Missing key ${key}`);
+    Script.complete();
+  }
+  
+  let msg;
+  while ( 'undefined' === typeof msg && (langs.length > 0) ) {
+    msg = this[key][langs.shift()];
+  }
+  
+  return msg;
+};
+
 // ===== ENTRY POINT
 
 let allContact = [];
@@ -27,19 +87,18 @@ for ( contactProps of allContact ) {
   if ( contacts.length === 0 ) {
     // No match found
     let alert = createAlertDialog(
-      "Erreur", 
-      `Aucun contact correspondant n'a été trouvé dans le compte par défaut. 
-      Avez-vous sélectionné un contact entreprise ou votre compte par défault est-il différent de iCloud ?`, 
-      "Annuler"
+      text.i18n('error'), 
+      text.i18n('error.noContactMatch'), 
+      text.i18n('cancel')
     );
     alert.presentAlert();
   }
   else if ( contacts.length > 1 ) {
     // More than one match
     let alert = createAlertDialog(
-      "Erreur", 
-      `Plusieurs contacts portent le même nom et prénom dans le compte par défaut.`, 
-      "Annuler"
+      text.i18n('error'), 
+      text.i18n('error.multipleContactMatch'), 
+      text.i18n('cancel')
     );
     alert.presentAlert();
   }
@@ -50,7 +109,7 @@ for ( contactProps of allContact ) {
     let groupSelectedHandler = (group) => {
       console.log(`Group select: ${group}`);
       if ( null !== group ) {
-        addContactToGroup(contacts[0], group);
+        addContactToGroup(contacts[0], group, container);
       }
     };
     
@@ -65,27 +124,32 @@ for ( contactProps of allContact ) {
  * We expect to have two parameters from URL:
  * - `fn` for base64-encoded firstname
  * - `ln` for base64-encoded lastname
+ * - `o`  for base64-encoded organization name
  */
 function buildInputFromCallbackURL() {
   let params = URLScheme.allParameters();
   
   let lastnameB64  = params["ln"];
   let firstnameB64 = params["fn"];
+  let orgB64       = params["o"];
   
   // We do not use this
   // let baseURL = params["x-success"]
   
   let lastnameData  = Data.fromBase64String(lastnameB64);
   let firstnameData = Data.fromBase64String(firstnameB64);
+  let orgData       = Data.fromBase64String(orgB64);
   
   let lastname  = lastnameData.toRawString();
   let firstname = firstnameData.toRawString();
+  let org       = org.toRawString();
   
-  console.log(`Importing contact:\n${firstname} ${lastname}`);
+  console.log(`Importing contact:\n${firstname} ${lastname} - ORG: ${org}`);
   
   let contact = ContactProp();
   contact.firstName = firstname;
   contact.lastName  = lastname;
+  contact.org       = org;
   
   return [ contact ];
 }
@@ -126,7 +190,7 @@ function ContactProp() {
 function getContactFromVCard(text) {
   let contact = ContactProp();
   
-  let singleValueRE = /^(FN|ORG):(.+)$/i;
+  let singleValueRE = /^(FN|ORG):([^;]+);?$/i;
   let namesRE = /^N:(.+)$/i;
   let lines = text.split(/\r\n|\r|\n/);
   
@@ -148,7 +212,7 @@ function getContactFromVCard(text) {
        contact['lastName']  = lastName;
      }
    });
- 
+  
   return contact;  
 }
 
@@ -157,16 +221,18 @@ function getContactFromVCard(text) {
  */
 async function findContacts(props) {
   let container = await ContactsContainer.default();
-  let allContacts = await Contact.all([ container ]);
+  let allContacts = await Contact.all([ container ]); 
   
   let matches = allContacts.filter((current) => {
-    let familyName = ( current.familyName ) ? current.familyName.trim() : '';
-    let givenName  = ( current.givenName )  ? current.givenName.trim()  : '';
+    let familyName = ( current.familyName )       ? current.familyName.trim() : '';
+    let givenName  = ( current.givenName )        ? current.givenName.trim()  : '';
+    let orgName    = ( current.organizationName ) ? current.organizationName.trim()  : '';
     
-    let hasFamilyName = familyName.length > 0 && 0 === props.lastName.localeCompare(familyName);
-    let hasGivenName  = givenName.length > 0 && 0 === props.firstName.localeCompare(givenName);
+    let sameFamilyName = 0 === props.lastName.localeCompare(familyName);
+    let sameGivenName  = 0 === props.firstName.localeCompare(givenName);
+    let sameOrgName    = 0 === props.org.localeCompare(orgName);
     
-    let isMatching = hasFamilyName && hasGivenName;
+    let isMatching = sameFamilyName && sameGivenName && sameOrgName;
     
     return isMatching;
   });
@@ -278,8 +344,9 @@ async function selectContactGroup(container, selectedFn) {
  *
  * @param contact: Contact
  * @param group: ContactsGroup
+ * @param container: ContactsGroup
  */
-function addContactToGroup(contact, group) {
+function addContactToGroup(contact, group, container) {
   group.addMember(contact)
   
   Contact.persistChanges()
@@ -289,11 +356,13 @@ function addContactToGroup(contact, group) {
   })
   .catch((error) => {
     console.log(`Failed to add contact to group. ${error}`);
-    let alert = createAlertDialog("Erreur", "Erreur. Verifiez que votre compte par défault pour les contacts est bien iCloud.", "OK")
+    let alert = createAlertDialog(text.i18n('error'), text.i18n('error.isDefaultICloud'), text.i18n('ok'));
+
     alert.present().then(
       () => { Script.complete(); }, 
       () => { Script.complete(); }
     );
   });
 }
+
 

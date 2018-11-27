@@ -7,6 +7,10 @@ let text = {
     'fr-FR': "🔙 Remettre",
     '*':     "🔙 Restore"
   },
+  'contact.anonymous': {
+    'fr-FR': "⁉️ anonyme",
+    '*':     "⁉️ anonymous"
+  },
 
   'error': {
     'fr-FR': "Erreur",
@@ -173,7 +177,20 @@ function orderGroups(groups) {
  */
 function orderContacts(contacts) {
   contacts.sort(
-    (c1, c2) => { return c1.familyName.localeCompare(c2.familyName); }
+    (c1, c2) => { 
+      let c1HasName = !c1.familyName.match(/^\s*$/);
+      let c2HasName = !c2.familyName.match(/^\s*$/);
+      
+      let c1HasFirstName = !c1.givenName.match(/^\s*$/);
+      let c2HasFirstName = !c2.givenName.match(/^\s*$/);
+      
+      let left  = ( c1HasName ) ? c1.familyName : ( c1HasFirstName ) ? c1.givenName : c1.organizationName;
+      let right = ( c2HasName ) ? c2.familyName : ( c2HasFirstName ) ? c2.givenName : c2.organizationName;      
+        
+      let compare = left.localeCompare(right);
+      
+      return compare;
+    }
   );
   
   return contacts;
@@ -244,6 +261,7 @@ async function manageGroupMembers(container, group, contacts) {
  */
 async function createMembersTable(members, selectFn) {
   let table = new UITable();
+  table.showSeparators = true;
   
   let selectedFn = (rowIndex) => {
     let member = members[rowIndex];
@@ -277,10 +295,35 @@ async function refreshMembersTable(table, members, selectedFn) {
 
 async function createMemberRow(member, selectFn) { 
   let row = new UITableRow();
-  row.height = 50;
+  row.height = 64;
 
-  let name = `${ member.contact.familyName } ${ member.contact.givenName }`;
-  let nameCell = UITableCell.text(name);
+  let name = [member.contact.familyName, member.contact.givenName].join(' ');
+  let nameCell = null;
+  
+  if ( name.match(/^\s*$/) ) {
+    if ( member.contact.emailAddresses.length > 0 ) {
+      let email = member.contact.emailAddresses[0];
+      name = [email.localizedLabel, email.value].join(' ');
+    }
+    else if ( member.contact.phoneNumbers.length > 0 ) {
+      let phone = member.contact.phoneNumbers[0];
+      name = [phone.localizedLabel, phone.value].join(' ');
+    }
+    else {
+      name = text.i18n('contact.anonymous');
+    }
+  }
+
+  
+  let corpName = member.contact.organizationName;
+  if ( corpName && corpName.match(/^\s*$/) ) {
+    // No corp name, text cell has only a title with name
+    nameCell = UITableCell.text(name);
+  } 
+  else {
+    // With corp name, put corp in title, name in subtitle
+    nameCell = UITableCell.text(corpName, name);
+  }
   nameCell.leftAligned();
 
   let actionKey = 

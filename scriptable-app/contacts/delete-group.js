@@ -1,3 +1,68 @@
+let text = {
+
+  'error': {
+    'fr-FR': "Erreur",
+    '*':     "Error"
+  },
+
+  'error.isDefaultICloud': {
+    'fr-FR': `Erreur. Verifiez que votre compte par défault pour les contacts est bien iCloud.`,
+    '*':     `Error. Please check default contact account is iCloud.`
+  },
+  
+  
+  'confirmDelete.title': {
+    'fr-FR': "Confirmation",
+    '*':     "Please Confirm"
+  },
+  'confirmDelete.message': {
+    'fr-FR': 'Vous aller supprimer le groupe de contacts « %0 ».',
+    '*':     'You are going to delete the group of contacts named "%0".'
+  },
+  'confirmDelete.action.confirm': {
+    'fr-FR': "Supprimer le groupe",
+    '*':     "Delete group"
+  },
+
+  'ok': {
+    'fr-FR': "OK",
+    '*':     "OK"
+  },
+  'cancel': {
+    'fr-FR': "Annuler",
+    '*':     "Cancel"
+  },
+
+
+  
+  // Use this as a template for localization
+  '__': {
+    'fr-FR': "",
+    '*':     ""
+  }
+};
+
+// ===== UI UTILITIES
+
+Object.prototype.i18n = function (key) {
+  let langs = Device.preferredLanguages();
+  langs.push('*');
+  
+  if ( 'undefined' === typeof this[key] ) {
+    console.log(`Missing key ${key}`);
+    Script.complete();
+  }
+  
+  let msg;
+  while ( 'undefined' === typeof msg && (langs.length > 0) ) {
+    msg = this[key][langs.shift()];
+  }
+  
+  return msg;
+};
+
+
+  
 function createAlertDialog(title, message, cancelLabel) {
   let dialog = new Alert();
   
@@ -19,7 +84,7 @@ function deleteGroup(group) {
   })
   .catch((error) => {
     console.log(`Failed to delete group ${error}`);
-    let alert = createAlertDialog("Erreur", "Erreur. Verifiez que votre compte par défault pour les contacts est bien iCloud.", "OK")
+    let alert = createAlertDialog(text.i18n('error'), text.i18n('error.isDefaultICloud'), text.i18n('ok'));
     alert.present();
   });
 }
@@ -28,11 +93,11 @@ function deleteGroup(group) {
 function confirmDeleteGroup(group) {
   let alert = new Alert();
   
-  alert.title = "Confirmation";
-  alert.message = `Vous aller supprimer le groupe de contacts "${ group.name }".`;
+  alert.title = text.i18n('confirmDelete.title');
+  alert.message = text.i18n('confirmDelete.message').replace('%0', group.name);
   
-  alert.addDestructiveAction("Supprimer le groupe");
-  alert.addCancelAction("Annuler");
+  alert.addDestructiveAction(text.i18n('confirmDelete.action.confirm'));
+  alert.addCancelAction(text.i18n('cancel'));
     
   alert.presentAlert()
   .then((response) => {
